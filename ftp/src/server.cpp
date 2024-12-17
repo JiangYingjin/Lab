@@ -10,6 +10,19 @@ using namespace ftp::protocol;
 
 Server::Server(uint16_t port)
 {
+    // 创建并确保根目录存在
+    rootDir = "/tmp/ftp";
+    if (!std::filesystem::exists(rootDir))
+    {
+        if (!std::filesystem::create_directories(rootDir))
+        {
+            throw std::runtime_error("Failed to create root directory");
+        }
+    }
+
+    // 设置当前工作目录为根目录
+    currentDir = rootDir;
+
     // 创建 socket
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0)
@@ -28,8 +41,6 @@ Server::Server(uint16_t port)
     {
         throw std::runtime_error("Bind failed");
     }
-
-    currentDir = std::filesystem::current_path();
 }
 
 void Server::start()
@@ -58,7 +69,19 @@ void Server::handleList()
     std::vector<std::string> files;
     for (const auto &entry : std::filesystem::directory_iterator(currentDir))
     {
-        files.push_back(entry.path().filename().string());
+        // 获取相对于当前目录的路径
+        std::string name = entry.path().filename().string();
+        if (std::filesystem::is_directory(entry.path()))
+        {
+            name += "/";
+        }
+        files.push_back(name);
+    }
+
+    // 如果不在根目录，添加 ".." 目录
+    if (currentDir != rootDir)
+    {
+        files.insert(files.begin(), "../");
     }
 
     // 发送文件列表
@@ -101,8 +124,7 @@ void Server::handleClient()
             }
 
             // 解析消息
-            Message msg;
-            // TODO: 实现消息反序列化
+            Message msg = Message::deserialize(buffer);
 
             handleCommand(msg);
         }
@@ -151,14 +173,39 @@ void Server::handleCommand(const Message &msg)
     catch (const std::exception &e)
     {
         // 发送错误响应给客户端
-        Message response{Command::LIST, std::string("Error: ") + e.what(), 0};
+        Message response{msg.command, std::string("Error: ") + e.what(), 0};
         sendResponse(response);
     }
 }
 
 void Server::handleChangeDir(const std::string &path)
 {
-    std::filesystem::path newPath = std::filesystem::absolute(path);
+    std::filesystem::path newPath;
+    if (path.empty() || path == "/")
+    {
+        // 如果路径为空或"/"，则切换到根目录
+        newPath = rootDir;
+    }
+    else if (path[0] == '/')
+    {
+        // 如果是绝对路径，则从根目录开始解析
+        newPath = std::filesystem::canonical(rootDir / path.substr(1));
+    }
+    else
+    {
+        // 如果是相对路径，则从当前目录开始解析
+        newPath = std::filesystem::canonical(currentDir / path);
+    }
+
+    // 检查新路径是否在根目录下
+    std::string rootStr = std::filesystem::canonical(rootDir).string();
+    std::string newPathStr = newPath.string();
+
+    if (newPathStr.substr(0, rootStr.length()) != rootStr)
+    {
+        throw std::runtime_error("Access denied: Cannot access directory outside root");
+    }
+
     if (!std::filesystem::exists(newPath))
     {
         throw std::runtime_error("Path does not exist");
@@ -169,7 +216,10 @@ void Server::handleChangeDir(const std::string &path)
     }
 
     currentDir = newPath;
-    Message response{Command::CD, "Directory changed successfully", 0};
+    // 返回相对于根目录的路径
+    std::string relPath = newPathStr.substr(rootStr.length());
+    if (relPath.empty()) relPath = "/";
+    Message response{Command::CD, "Changed to: " + relPath, 0};
     sendResponse(response);
 }
 
@@ -200,7 +250,20 @@ void Server::handleDownload(const std::string &filename)
 
 void Server::handleUpload(const std::string &filename, size_t size)
 {
+    // 检查文件名是否包含路径分隔符
+    if (filename.find('/') != std::string::npos || filename.find('\\') != std::string::npos)
+    {
+        throw std::runtime_error("Invalid filename: Cannot contain path separators");
+    }
+
     std::filesystem::path filePath = currentDir / filename;
+    std::string rootStr = std::filesystem::canonical(rootDir).string();
+    std::string filePathStr = std::filesystem::canonical(currentDir).string() + "/" + filename;
+
+    if (filePathStr.substr(0, rootStr.length()) != rootStr)
+    {
+        throw std::runtime_error("Access denied: Cannot write outside root directory");
+    }
 
     // 创建文件
     std::ofstream file(filePath, std::ios::binary);
@@ -209,7 +272,27 @@ void Server::handleUpload(const std::string &filename, size_t size)
         throw std::runtime_error("Cannot create file");
     }
 
-    // TODO: 实现接收文件内容的逻辑
+    // 接收文件内容
+    size_t remainingBytes = size;
+    std::vector<char> buffer(8192); // 8KB 缓冲区
+
+    while (remainingBytes > 0)
+    {
+        size_t bytesToRead = std::min(remainingBytes, buffer.size());
+        ssize_t bytesRead = recv(clientSocket, buffer.data(), bytesToRead, 0);
+        
+        if (bytesRead <= 0)
+        {
+            throw std::runtime_error("Failed to receive file content");
+        }
+
+        file.write(buffer.data(), bytesRead);
+        remainingBytes -= bytesRead;
+    }
+
+    // 发送上传成功响应
+    Message response{Command::UPLOAD, "File uploaded successfully", 0};
+    sendResponse(response);
 }
 
 void Server::sendResponse(const Message &response)

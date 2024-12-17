@@ -22,6 +22,7 @@ namespace ftp
             int clientSocket;
             struct sockaddr_in serverAddr;
             std::filesystem::path currentDir;
+            std::filesystem::path rootDir;  // 根目录路径
 
             void handleClient();
             void handleCommand(const protocol::Message &msg);

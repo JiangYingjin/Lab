@@ -2,31 +2,17 @@ add_rules("mode.debug", "mode.release")
 
 set_languages("c++20")
 
-target("protocol")
-set_kind("static")
-add_files("src/protocol.cpp")
-add_includedirs("include")
+-- 设置构建目录为项目根目录
+set_targetdir(".")
 
-target("client")
-set_kind("static")
-add_files("src/client.cpp")
-add_includedirs("include")
-add_deps("protocol")
-
-target("server")
-set_kind("static")
-add_files("src/server.cpp")
-add_includedirs("include")
-add_deps("protocol")
-
+-- 客户端可执行文件
 target("ftpc")
-set_kind("binary")
-add_files("src/ftpc.cpp")
-add_includedirs("include")
-add_deps("client", "protocol")
+    set_kind("binary")
+    add_files("src/ftpc.cpp", "src/client.cpp", "src/protocol.cpp")
+    add_includedirs("include")
 
+-- 服务器可执行文件
 target("ftps")
-set_kind("binary")
-add_files("src/ftps.cpp")
-add_includedirs("include")
-add_deps("server", "protocol")
+    set_kind("binary")
+    add_files("src/ftps.cpp", "src/server.cpp", "src/protocol.cpp")
+    add_includedirs("include")

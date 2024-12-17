@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <fstream>
+#include <filesystem>
 
 using namespace ftp::client;
 using namespace ftp::protocol;
@@ -167,10 +168,29 @@ bool Client::downloadFile(const std::string &filename)
 
 bool Client::uploadFile(const std::string &filename)
 {
-    // 检查文件是否存在
-    std::ifstream file(filename, std::ios::binary);
+    // 尝试多种可能的路径
+    std::filesystem::path filePath;
+    std::ifstream file;
+
+    // 1. 首先尝试直接打开（处理绝对路径和当前目录的相对路径）
+    file.open(filename, std::ios::binary);
+    if (file)
+    {
+        filePath = filename;
+    }
+    else
+    {
+        // 2. 尝试从当前工作目录打开
+        filePath = std::filesystem::current_path() / filename;
+        file.open(filePath, std::ios::binary);
+    }
+
     if (!file)
     {
+        std::cerr << "Error: Cannot open file '" << filename << "'\n"
+                  << "Tried paths:\n"
+                  << "  " << filename << "\n"
+                  << "  " << (std::filesystem::current_path() / filename).string() << "\n";
         return false;
     }
 
@@ -179,8 +199,11 @@ bool Client::uploadFile(const std::string &filename)
     size_t fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
+    // 只发送文件名（不包含路径）
+    std::string baseFilename = std::filesystem::path(filename).filename().string();
+
     // 发送上传请求
-    Message msg{Command::UPLOAD, filename, fileSize};
+    Message msg{Command::UPLOAD, baseFilename, fileSize};
     sendMessage(msg);
 
     try
@@ -199,10 +222,16 @@ bool Client::uploadFile(const std::string &filename)
 
         // 接收上传确认
         Message response = receiveResponse();
-        return response.command == Command::UPLOAD;
+        if (response.command != Command::UPLOAD)
+        {
+            std::cerr << "Error: " << response.argument << '\n';
+            return false;
+        }
+        return true;
     }
-    catch (const std::exception &)
+    catch (const std::exception &e)
     {
+        std::cerr << "Error during upload: " << e.what() << '\n';
         return false;
     }
 }
