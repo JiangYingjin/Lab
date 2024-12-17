@@ -11,20 +11,22 @@ using namespace ftp::client;
 using namespace ftp::protocol;
 
 // ANSI 颜色代码
-namespace Color {
-    const std::string Reset   = "\033[0m";
-    const std::string Bold    = "\033[1m";
-    const std::string Red     = "\033[31m";
-    const std::string Green   = "\033[32m";
-    const std::string Yellow  = "\033[33m";
-    const std::string Blue    = "\033[34m";
+namespace Color
+{
+    const std::string Reset = "\033[0m";
+    const std::string Bold = "\033[1m";
+    const std::string Red = "\033[31m";
+    const std::string Green = "\033[32m";
+    const std::string Yellow = "\033[33m";
+    const std::string Blue = "\033[34m";
     const std::string Magenta = "\033[35m";
-    const std::string Cyan    = "\033[36m";
-    const std::string White   = "\033[37m";
+    const std::string Cyan = "\033[36m";
+    const std::string White = "\033[37m";
 }
 
 // 添加更多颜色和样式组合
-namespace Style {
+namespace Style
+{
     // 状态颜色
     const std::string Success = Color::Green;
     const std::string Error = Color::Red;
@@ -45,16 +47,16 @@ namespace Style {
 // 格式化文件大小
 std::string formatSize(size_t bytes)
 {
-    const char* units[] = {"B", "KB", "MB", "GB"};
+    const char *units[] = {"B", "KB", "MB", "GB"};
     int unit = 0;
     double size = bytes;
-    
+
     while (size >= 1024 && unit < 3)
     {
         size /= 1024;
         unit++;
     }
-    
+
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "%.1f %s", size, units[unit]);
     return buffer;
@@ -62,20 +64,24 @@ std::string formatSize(size_t bytes)
 
 void printHelp()
 {
-    std::cout << Style::Header << "\nFTP Client Commands:\n" << Color::Reset
+    std::cout << Style::Header << "\nFTP Client Commands:\n"
+              << Color::Reset
               << "\n"
-              << Style::Command << "  File Operations:\n" << Color::Reset
+              << Style::Command << "  File Operations:\n"
+              << Color::Reset
               << "    l, ls" << Color::Reset << "                  - List files and directories\n"
               << "    get <file>" << Color::Reset << "             - Download file\n"
               << "    put <file>" << Color::Reset << "             - Upload file\n"
               << "\n"
-              << Style::Command << "  Directory Operations:\n" << Color::Reset
+              << Style::Command << "  Directory Operations:\n"
+              << Color::Reset
               << "    cd <path>" << Color::Reset << "              - Change directory\n"
               << "    pwd" << Color::Reset << "                    - Print working directory\n"
               << "    mkdir <dir>" << Color::Reset << "            - Create directory\n"
               << "    rm <file|dir> [-r]" << Color::Reset << "     - Remove file or directory (-r for recursive)\n"
               << "\n"
-              << Style::Command << "  System Commands:\n" << Color::Reset
+              << Style::Command << "  System Commands:\n"
+              << Color::Reset
               << "    clear, cls" << Color::Reset << "             - Clear screen\n"
               << "    help, ?" << Color::Reset << "                - Show this help\n"
               << "    exit, quit, q" << Color::Reset << "          - Exit program\n"
@@ -88,22 +94,22 @@ std::vector<std::string> splitCommand(const std::string &line)
     std::vector<std::string> args;
     std::istringstream iss(line);
     std::string arg;
-    
+
     while (iss >> arg)
     {
         args.push_back(arg);
     }
-    
+
     return args;
 }
 
 void clearScreen()
 {
-    #ifdef _WIN32
-        system("cls");
-    #else
-        system("clear");
-    #endif
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
 }
 
 // 打印进度信息
@@ -118,7 +124,7 @@ void printProgress(const std::string &operation, size_t current, size_t total)
     static size_t lastBytes = 0;
     auto now = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTime);
-    
+
     double speed = 0;
     if (duration.count() > 0)
     {
@@ -140,15 +146,18 @@ void printProgress(const std::string &operation, size_t current, size_t total)
 
     // 清除当前行
     std::cout << "\r\033[K";
-    
+
     // 显示操作和进度条
     std::cout << Style::Info << operation << ": " << Color::Reset;
     std::cout << "[";
     for (int i = 0; i < width; ++i)
     {
-        if (i < pos) std::cout << "=";
-        else if (i == pos) std::cout << ">";
-        else std::cout << " ";
+        if (i < pos)
+            std::cout << "=";
+        else if (i == pos)
+            std::cout << ">";
+        else
+            std::cout << " ";
     }
     std::cout << "] ";
 
@@ -186,7 +195,7 @@ void printProgress(const std::string &operation, size_t current, size_t total)
 void printFileList(const std::vector<std::string> &files)
 {
     std::cout << Style::Header << "\nDirectory contents:" << Color::Reset << std::endl;
-    
+
     size_t maxWidth = 0;
     for (const auto &file : files)
     {
@@ -215,7 +224,8 @@ void printFileList(const std::vector<std::string> &files)
             col = 0;
         }
     }
-    if (col != 0) std::cout << "\n";
+    if (col != 0)
+        std::cout << "\n";
     std::cout << Style::Info << "Total: " << files.size() << " items" << Color::Reset << std::endl;
 }
 
@@ -246,7 +256,7 @@ void printInfo(const std::string &msg)
 // 打印用法提示
 void printUsage(const std::string &cmd, const std::string &usage)
 {
-    std::cout << Style::Warning << "Usage: " << Style::Command << cmd 
+    std::cout << Style::Warning << "Usage: " << Style::Command << cmd
               << Color::Reset << " " << usage << std::endl;
 }
 
@@ -269,10 +279,10 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        std::cout << Style::Success << "✓ Connected to server " << Style::Highlight 
+        std::cout << Style::Success << "✓ Connected to server " << Style::Highlight
                   << argv[1] << ":" << argv[2] << Color::Reset << "\n"
-                  << Style::Info << "Type " << Style::Command << "help" << Color::Reset 
-                  << Style::Info << " or " << Style::Command << "?" << Color::Reset 
+                  << Style::Info << "Type " << Style::Command << "help" << Color::Reset
+                  << Style::Info << " or " << Style::Command << "?" << Color::Reset
                   << Style::Info << " for available commands." << Color::Reset << std::endl;
 
         std::string line;
@@ -282,7 +292,8 @@ int main(int argc, char *argv[])
             std::getline(std::cin, line);
 
             auto args = splitCommand(line);
-            if (args.empty()) continue;
+            if (args.empty())
+                continue;
 
             std::string &command = args[0];
             std::transform(command.begin(), command.end(), command.begin(), ::tolower);
@@ -364,9 +375,9 @@ int main(int argc, char *argv[])
                     printUsage("rm", "<file|dir> [-r]");
                     continue;
                 }
-                
+
                 bool recursive = (args.size() > 2 && args[2] == "-r");
-                
+
                 if (recursive)
                 {
                     if (client.removeDirectory(args[1]))

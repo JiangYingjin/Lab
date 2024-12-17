@@ -320,7 +320,7 @@ bool Client::deleteFile(const std::string &filename)
     try
     {
         Message response = receiveResponse();
-        
+
         // 检查是否是错误响应
         if (response.argument.substr(0, 7) == "Error: ")
         {

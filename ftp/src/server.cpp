@@ -218,7 +218,8 @@ void Server::handleChangeDir(const std::string &path)
     currentDir = newPath;
     // 返回对于根目录的路径
     std::string relPath = newPathStr.substr(rootStr.length());
-    if (relPath.empty()) relPath = "/";
+    if (relPath.empty())
+        relPath = "/";
     Message response{Command::CD, "Current directory: " + relPath, 0};
     sendResponse(response);
 }
@@ -226,7 +227,7 @@ void Server::handleChangeDir(const std::string &path)
 void Server::handleDownload(const std::string &filename)
 {
     std::filesystem::path filePath = currentDir / filename;
-    
+
     // 检查文件是否存在
     if (!std::filesystem::exists(filePath))
     {
@@ -288,7 +289,7 @@ void Server::handleUpload(const std::string &filename, size_t size)
     {
         size_t bytesToRead = std::min(remainingBytes, buffer.size());
         ssize_t bytesRead = recv(clientSocket, buffer.data(), bytesToRead, 0);
-        
+
         if (bytesRead <= 0)
         {
             throw std::runtime_error("Failed to receive file content");
@@ -372,7 +373,7 @@ void Server::handleRemoveDir(const std::string &dirname)
 void Server::handleDelete(const std::string &filename)
 {
     std::filesystem::path filePath = currentDir / filename;
-    
+
     // 检查文件是否存在
     if (!std::filesystem::exists(filePath))
     {
