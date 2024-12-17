@@ -172,7 +172,7 @@ void Server::handleCommand(const Message &msg)
     }
     catch (const std::exception &e)
     {
-        // 发送错误响应给客户端
+        // 发送错误响应给客户端，使用原始命令类型
         Message response{msg.command, std::string("Error: ") + e.what(), 0};
         sendResponse(response);
     }
@@ -216,26 +216,34 @@ void Server::handleChangeDir(const std::string &path)
     }
 
     currentDir = newPath;
-    // 返回相对于根目录的路径
+    // 返回对于根目录的路径
     std::string relPath = newPathStr.substr(rootStr.length());
     if (relPath.empty()) relPath = "/";
-    Message response{Command::CD, "Changed to: " + relPath, 0};
+    Message response{Command::CD, "Current directory: " + relPath, 0};
     sendResponse(response);
 }
 
 void Server::handleDownload(const std::string &filename)
 {
     std::filesystem::path filePath = currentDir / filename;
+    
+    // 检查文件是否存在
     if (!std::filesystem::exists(filePath))
     {
-        throw std::runtime_error("File does not exist");
+        throw std::runtime_error("File does not exist: " + filename);
+    }
+
+    // 检查是否是普通文件
+    if (!std::filesystem::is_regular_file(filePath))
+    {
+        throw std::runtime_error("Not a regular file: " + filename);
     }
 
     // 读取文件内容
     std::ifstream file(filePath, std::ios::binary);
     if (!file)
     {
-        throw std::runtime_error("Cannot open file");
+        throw std::runtime_error("Cannot open file: " + filename);
     }
 
     // 获取文件大小
@@ -364,19 +372,23 @@ void Server::handleRemoveDir(const std::string &dirname)
 void Server::handleDelete(const std::string &filename)
 {
     std::filesystem::path filePath = currentDir / filename;
+    
+    // 检查文件是否存在
     if (!std::filesystem::exists(filePath))
     {
-        throw std::runtime_error("File does not exist");
+        throw std::runtime_error("File does not exist: " + filename);
     }
 
+    // 检查是否是普通文件
     if (!std::filesystem::is_regular_file(filePath))
     {
-        throw std::runtime_error("Path is not a regular file");
+        throw std::runtime_error("Not a regular file: " + filename);
     }
 
+    // 尝试删除文件
     if (!std::filesystem::remove(filePath))
     {
-        throw std::runtime_error("Failed to delete file");
+        throw std::runtime_error("Failed to delete file: " + filename);
     }
 
     Message response{Command::DELETE, "File deleted successfully", 0};

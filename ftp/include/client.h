@@ -32,6 +32,9 @@ namespace ftp
             // 辅助函数
             void sendMessage(const protocol::Message &msg);
             protocol::Message receiveResponse();
+            void printProgress(const std::string &operation, size_t current, size_t total);
+            std::string formatSize(size_t bytes);
+            void printError(const std::string &msg);
         };
 
     } // namespace client
