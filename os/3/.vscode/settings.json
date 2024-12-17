@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "*.conf": "ini",
+        "*.py": "python",
+        "*.service": "ini",
+        "*.toml": "toml",
+        "*.yml": "yaml",
+        "*sh": "shellscript",
+        "*shrc": "shellscript",
+        "chrono": "cpp"
+    }
+}
