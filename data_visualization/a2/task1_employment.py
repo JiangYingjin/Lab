@@ -252,13 +252,15 @@ def create_grouped_bar_chart(data, year):
 
     # 设置标题和标签
     plt.title(
-        f"Employment Distribution Across Three Sectors in {year}",
+        f"Employment Distribution in {year} for Selected Countries",
         fontsize=16,
         fontweight="bold",
         pad=20,
     )
     plt.xlabel("Country", fontsize=12, fontweight="bold")
-    plt.ylabel("Employment Rate (%)", fontsize=12, fontweight="bold")
+    plt.ylabel(
+        "Employment Rate in Economic Sectors (%)", fontsize=12, fontweight="bold"
+    )
 
     # 设置图例
     plt.legend(
