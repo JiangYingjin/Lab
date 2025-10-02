@@ -215,20 +215,135 @@ def generate_markdown_report():
         f.write("- **数据转换**: 对数转换\n")
         f.write("- **DPI**: 300\n\n")
 
-        # 7. 统计结果
-        f.write("## 7. 统计结果\n\n")
+        # 7. 每个国家的详细数据
+        f.write("## 7. 每个国家的详细数据\n\n")
+        if data_report["gdp_1991"] is not None:
+            # 获取匹配成功的国家数据
+            matched_countries = data_report["merged_data"][
+                data_report["merged_data"]["GDP (in USD)"].notna()
+            ]
+
+            f.write("### 7.1 成功匹配的国家数据（按GDP排序）\n\n")
+            f.write(
+                "| 排名 | 国家名称 | 映射名称 | 原始GDP (USD) | 对数GDP | GDP分位数 | 颜色分类 |\n"
+            )
+            f.write(
+                "|------|----------|----------|---------------|---------|-----------|----------|\n"
+            )
+
+            # 按GDP排序
+            matched_sorted = matched_countries.sort_values(
+                "GDP (in USD)", ascending=False
+            )
+
+            # 计算分位数
+            gdp_data = matched_sorted["GDP (in USD)"].dropna()
+            gdp_25 = gdp_data.quantile(0.25)
+            gdp_50 = gdp_data.quantile(0.50)
+            gdp_75 = gdp_data.quantile(0.75)
+            gdp_90 = gdp_data.quantile(0.90)
+
+            for i, (_, row) in enumerate(matched_sorted.iterrows(), 1):
+                gdp_value = row["GDP (in USD)"]
+                log_gdp = row["log_GDP"]
+
+                # 确定分位数
+                if gdp_value < gdp_25:
+                    percentile = "< 25%"
+                    color_class = "Low GDP"
+                elif gdp_value < gdp_50:
+                    percentile = "25% - 50%"
+                    color_class = "Medium-Low GDP"
+                elif gdp_value < gdp_75:
+                    percentile = "50% - 75%"
+                    color_class = "Medium GDP"
+                elif gdp_value < gdp_90:
+                    percentile = "75% - 90%"
+                    color_class = "High GDP"
+                else:
+                    percentile = "> 90%"
+                    color_class = "Very High GDP"
+
+                # 格式化GDP值
+                if gdp_value >= 1e12:
+                    gdp_formatted = f"${gdp_value/1e12:.1f}T"
+                elif gdp_value >= 1e9:
+                    gdp_formatted = f"${gdp_value/1e9:.1f}B"
+                elif gdp_value >= 1e6:
+                    gdp_formatted = f"${gdp_value/1e6:.1f}M"
+                else:
+                    gdp_formatted = f"${gdp_value/1e3:.1f}K"
+
+                f.write(
+                    f"| {i:3d} | {row['country_name']} | {row['mapped_name']} | {gdp_formatted} | {log_gdp:.2f} | {percentile} | {color_class} |\n"
+                )
+
+            f.write("\n")
+
+            # 未匹配的国家数据
+            f.write("### 7.2 未匹配的GDP数据国家\n\n")
+            f.write("以下国家在GDP数据中存在但无法在地图中找到对应：\n\n")
+            f.write("| 序号 | 国家名称 | 原始GDP (USD) | 对数GDP | GDP分位数 |\n")
+            f.write("|------|----------|---------------|---------|-----------|\n")
+
+            unmatched_gdp = data_report["gdp_1991"][
+                ~data_report["gdp_1991"]["Country Name"].isin(
+                    matched_countries["country_name"]
+                )
+            ]
+
+            for i, (_, row) in enumerate(unmatched_gdp.iterrows(), 1):
+                gdp_value = row["GDP (in USD)"]
+                log_gdp = np.log10(gdp_value)
+
+                # 确定分位数（基于所有1991年数据）
+                all_gdp_1991 = data_report["gdp_1991"]["GDP (in USD)"].dropna()
+                all_gdp_25 = all_gdp_1991.quantile(0.25)
+                all_gdp_50 = all_gdp_1991.quantile(0.50)
+                all_gdp_75 = all_gdp_1991.quantile(0.75)
+                all_gdp_90 = all_gdp_1991.quantile(0.90)
+
+                if gdp_value < all_gdp_25:
+                    percentile = "< 25%"
+                elif gdp_value < all_gdp_50:
+                    percentile = "25% - 50%"
+                elif gdp_value < all_gdp_75:
+                    percentile = "50% - 75%"
+                elif gdp_value < all_gdp_90:
+                    percentile = "75% - 90%"
+                else:
+                    percentile = "> 90%"
+
+                # 格式化GDP值
+                if gdp_value >= 1e12:
+                    gdp_formatted = f"${gdp_value/1e12:.1f}T"
+                elif gdp_value >= 1e9:
+                    gdp_formatted = f"${gdp_value/1e9:.1f}B"
+                elif gdp_value >= 1e6:
+                    gdp_formatted = f"${gdp_value/1e6:.1f}M"
+                else:
+                    gdp_formatted = f"${gdp_value/1e3:.1f}K"
+
+                f.write(
+                    f"| {i:3d} | {row['Country Name']} | {gdp_formatted} | {log_gdp:.2f} | {percentile} |\n"
+                )
+
+            f.write("\n")
+
+        # 8. 统计结果
+        f.write("## 8. 统计结果\n\n")
         if data_report["statistics"] is not None:
-            f.write("### 7.1 GDP分布统计\n\n")
+            f.write("### 8.1 GDP分布统计\n\n")
             f.write("```\n")
             f.write(data_report["statistics"]["gdp_stats"].to_string())
             f.write("\n```\n\n")
 
-            f.write("### 7.2 对数转换后统计\n\n")
+            f.write("### 8.2 对数转换后统计\n\n")
             f.write("```\n")
             f.write(data_report["statistics"]["log_gdp_stats"].to_string())
             f.write("\n```\n\n")
 
-            f.write("### 7.3 颜色分级统计\n\n")
+            f.write("### 8.3 颜色分级统计\n\n")
             f.write("```\n")
             f.write(data_report["statistics"]["color_bins"].to_string())
             f.write("\n```\n\n")
