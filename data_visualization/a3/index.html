@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      COVID-19 Global Situation Analysis: Total vs. New Cases and Deaths
+    </title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 2000px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        padding: 30px;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+        font-weight: 600;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 1.1em;
+      }
+
+      .time-slider-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .time-slider-title {
+        font-size: 1.2em;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+
+      .time-slider {
+        width: 100%;
+        height: 30px;
+        background: #ddd;
+        outline: none;
+        border-radius: 15px;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+
+      .time-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        background: #667eea;
+        cursor: pointer;
+        border-radius: 50%;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .time-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #667eea;
+        cursor: pointer;
+        border-radius: 50%;
+        border: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .time-display {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+
+      .charts-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        flex-wrap: wrap;
+      }
+
+      .chart-wrapper {
+        flex: 1;
+        min-width: 45%;
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .chart-title {
+        font-size: 1.4em;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        text-align: center;
+        border-bottom: 3px solid #667eea;
+        padding-bottom: 10px;
+      }
+
+      svg {
+        display: block;
+        margin: 0 auto;
+      }
+
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        pointer-events: none;
+        font-size: 14px;
+        line-height: 1.6;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      .tooltip-title {
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 8px;
+        color: #4fc3f7;
+        border-bottom: 1px solid #4fc3f7;
+        padding-bottom: 4px;
+      }
+
+      .tooltip-item {
+        margin: 4px 0;
+      }
+
+      .tooltip-label {
+        color: #aaa;
+      }
+
+      .tooltip-value {
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .axis text {
+        font-size: 12px;
+        fill: #555;
+      }
+
+      .axis path,
+      .axis line {
+        stroke: #999;
+      }
+
+      .axis-label {
+        font-size: 14px;
+        font-weight: 600;
+        fill: #333;
+      }
+
+      .grid line {
+        stroke: #e0e0e0;
+        stroke-opacity: 0.7;
+        shape-rendering: crispEdges;
+      }
+
+      .grid path {
+        stroke-width: 0;
+      }
+
+      .data-point {
+        fill: #667eea;
+        stroke: #fff;
+        stroke-width: 1.5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        opacity: 0.8;
+      }
+
+      .data-point:hover {
+        fill: #ff6b6b;
+        stroke: #ff6b6b;
+        stroke-width: 3px;
+        r: 8;
+        opacity: 1;
+      }
+
+      .data-point.highlighted {
+        fill: #ffd93d;
+        stroke: #ff6b6b;
+        stroke-width: 3px;
+        r: 8;
+        opacity: 1;
+      }
+
+      .data-point.dimmed {
+        opacity: 0.3;
+      }
+
+      .data-point.high-cfr {
+        fill: #d32f2f;
+      }
+
+      .data-point.medium-cfr {
+        fill: #ff9800;
+      }
+
+      .data-point.low-cfr {
+        fill: #4caf50;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 50px;
+        font-size: 1.5em;
+        color: #666;
+      }
+
+      .info-box {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+      }
+
+      .info-box p {
+        margin: 5px 0;
+        color: #1565c0;
+      }
+
+      .legend {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+      }
+
+      .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 1px solid #ccc;
+      }
+
+      @media (max-width: 1200px) {
+        .chart-wrapper {
+          min-width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>COVID-19 Global Situation Analysis</h1>
+      <div class="subtitle">
+        Interactive Scatter Plot Analysis: Total vs. New Cases and Deaths
+      </div>
+
+      <div class="info-box">
+        <p>
+          <strong>Interactive Features:</strong> Hover over data points to view
+          detailed information. Corresponding countries will be highlighted
+          across both charts. Use the time slider to explore data across
+          different dates. Color coding represents Case-Fatality Rate (CFR).
+        </p>
+        <p><strong>Data Source:</strong> COVID-19 Global Pandemic Dataset</p>
+      </div>
+
+      <div id="loading" class="loading">Loading data...</div>
+
+      <div class="time-slider-container" style="display: none">
+        <div class="time-slider-title">Date Selector</div>
+        <input
+          type="range"
+          id="timeSlider"
+          class="time-slider"
+          min="0"
+          max="100"
+          value="100"
+        />
+        <div class="time-display" id="timeDisplay">Latest Date: 2023-03-09</div>
+      </div>
+
+      <div class="charts-container" style="display: none">
+        <div class="chart-wrapper">
+          <div class="chart-title">Total Cases vs. Total Deaths</div>
+          <svg id="chart1"></svg>
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #4caf50"></div>
+              <span>Low CFR (< 1%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #ff9800"></div>
+              <span>Medium CFR (1-3%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #d32f2f"></div>
+              <span>High CFR (> 3%)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-wrapper">
+          <div class="chart-title">New Cases vs. New Deaths</div>
+          <svg id="chart2"></svg>
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #4caf50"></div>
+              <span>Low CFR (< 1%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #ff9800"></div>
+              <span>Medium CFR (1-3%)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background-color: #d32f2f"></div>
+              <span>High CFR (> 3%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tooltip" id="tooltip"></div>
+      <div class="tooltip" id="tooltip2"></div>
+    </div>
+
+    <script>
+      // Configuration parameters
+      const config = {
+        width: 800,
+        height: 600,
+        margin: { top: 40, right: 60, bottom: 80, left: 100 },
+        pointRadius: 4,
+        pointRadiusHighlight: 8,
+        pointRadiusMax: 12,
+      };
+
+      // Calculate inner drawing area dimensions
+      const innerWidth =
+        config.width - config.margin.left - config.margin.right;
+      const innerHeight =
+        config.height - config.margin.top - config.margin.bottom;
+
+      // Tooltip elements
+      const tooltip = d3.select("#tooltip");
+      const tooltip2 = d3.select("#tooltip2");
+
+      // Global data storage
+      let allData = [];
+      let currentData = [];
+      let availableDates = [];
+      let currentDateIndex = 0;
+
+      // Non-country entities to filter out
+      const NON_COUNTRY_ENTITIES = new Set([
+        "World",
+        "Africa",
+        "Asia",
+        "Europe",
+        "North America",
+        "South America",
+        "Oceania",
+        "European Union",
+        "High-income countries",
+        "Low-income countries",
+        "Lower-middle-income countries",
+        "Upper-middle-income countries",
+        "International",
+      ]);
+
+      // CFR color scale
+      const cfrColorScale = d3
+        .scaleThreshold()
+        .domain([1, 3, 5])
+        .range(["#4caf50", "#ff9800", "#d32f2f"]);
+
+      // Size scale for data points (based on total cases)
+      const sizeScale = d3.scaleSqrt().range([3, 12]);
+
+      // Load and process data
+      d3.csv("covid-19_full_data_cleaned.csv")
+        .then((data) => {
+          console.log(`Loaded ${data.length} rows of data`);
+
+          // Data type conversion
+          data.forEach((d) => {
+            d.date = new Date(d.date);
+            d.new_cases = +d.new_cases || 0;
+            d.new_deaths = +d.new_deaths || 0;
+            d.total_cases = +d.total_cases || 0;
+            d.total_deaths = +d.total_deaths || 0;
+          });
+
+          // Filter non-country entities
+          allData = data.filter((d) => !NON_COUNTRY_ENTITIES.has(d.location));
+
+          // Get available dates
+          availableDates = [...new Set(allData.map((d) => d.date))].sort(
+            d3.ascending
+          );
+          console.log(
+            `Available dates: ${availableDates.length} from ${d3.timeFormat(
+              "%Y-%m-%d"
+            )(availableDates[0])} to ${d3.timeFormat("%Y-%m-%d")(
+              availableDates[availableDates.length - 1]
+            )}`
+          );
+
+          // 1. 首先创建图表的SVG和G元素 (必须先执行)
+          createScatterPlot1();
+          createScatterPlot2();
+
+          // 2. 设置时间轴
+          setupTimeSlider();
+
+          // 3. 初始化数据和渲染（现在 chart1G 和 chart2G 已经存在）
+          currentDateIndex = availableDates.length - 1;
+          updateDataForDate(availableDates[currentDateIndex]);
+
+          // Set slider to latest date
+          d3.select("#timeSlider").property("value", currentDateIndex);
+
+          // Hide loading, show charts
+          d3.select("#loading").style("display", "none");
+          d3.select(".time-slider-container").style("display", "block");
+          d3.select(".charts-container").style("display", "flex");
+        })
+        .catch((error) => {
+          console.error("Data loading failed:", error);
+          d3.select("#loading").html(
+            `<span style="color: red;">Data loading failed: ${error.message}</span>`
+          );
+        });
+
+      // Setup time slider
+      function setupTimeSlider() {
+        const slider = d3.select("#timeSlider");
+        const timeDisplay = d3.select("#timeDisplay");
+
+        slider.attr("max", availableDates.length - 1).on("input", function () {
+          currentDateIndex = +this.value;
+          const selectedDate = availableDates[currentDateIndex];
+          updateDataForDate(selectedDate);
+          timeDisplay.text(
+            `Selected Date: ${d3.timeFormat("%Y-%m-%d")(selectedDate)}`
+          );
+        });
+
+        // Set initial display
+        timeDisplay.text(
+          `Latest Date: ${d3.timeFormat("%Y-%m-%d")(
+            availableDates[availableDates.length - 1]
+          )}`
+        );
+      }
+
+      // Update data for selected date
+      function updateDataForDate(selectedDate) {
+        currentData = allData.filter(
+          (d) => d.date.getTime() === selectedDate.getTime()
+        );
+
+        // Calculate CFR for current data
+        currentData.forEach((d) => {
+          d.cfr =
+            d.total_cases > 0 ? (d.total_deaths / d.total_cases) * 100 : 0;
+        });
+
+        // Update size scale domain
+        const maxTotalCases = d3.max(currentData, (d) => d.total_cases) || 1;
+        sizeScale.domain([0, maxTotalCases]);
+
+        // console.log(
+        //   `Updated data for ${d3.timeFormat("%Y-%m-%d")(selectedDate)}: ${
+        //     currentData.length
+        //   } countries`
+        // );
+
+        // Update charts
+        updateScatterPlot1();
+        updateScatterPlot2();
+      }
+
+      // Create scatter plot 1 (Total Cases vs Total Deaths)
+      function createScatterPlot1() {
+        const svg = d3
+          .select("#chart1")
+          .attr("width", config.width)
+          .attr("height", config.height);
+
+        const g = svg
+          .append("g")
+          .attr(
+            "transform",
+            `translate(${config.margin.left},${config.margin.top})`
+          );
+
+        // Store reference for updates
+        window.chart1G = g;
+        window.chart1Svg = svg;
+      }
+
+      // Update scatter plot 1
+      function updateScatterPlot1() {
+        const g = window.chart1G;
+        if (!g) return;
+
+        // Clear previous content
+        g.selectAll("*").remove();
+
+        // Filter valid data
+        const validData = currentData.filter(
+          (d) => d.total_cases > 0 && d.total_deaths > 0
+        );
+
+        if (validData.length === 0) return;
+
+        // Create scales
+        const xScale = d3
+          .scaleLog()
+          .domain([1, d3.max(validData, (d) => d.total_cases) * 1.1])
+          .range([0, innerWidth])
+          .nice();
+
+        const yScale = d3
+          .scaleLog()
+          .domain([1, d3.max(validData, (d) => d.total_deaths) * 1.1])
+          .range([innerHeight, 0])
+          .nice();
+
+        // Add grid lines
+        g.append("g")
+          .attr("class", "grid")
+          .attr("transform", `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(""));
+
+        g.append("g")
+          .attr("class", "grid")
+          .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(""));
+
+        // Add axes
+        g.append("g")
+          .attr("class", "axis")
+          .attr("transform", `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(xScale).ticks(10, ",.0f"));
+
+        g.append("g")
+          .attr("class", "axis")
+          .call(d3.axisLeft(yScale).ticks(10, ",.0f"));
+
+        // Add axis labels
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("x", innerWidth / 2)
+          .attr("y", innerHeight + 50)
+          .attr("text-anchor", "middle")
+          .text("Total Cases");
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -innerHeight / 2)
+          .attr("y", -70)
+          .attr("text-anchor", "middle")
+          .text("Total Deaths");
+
+        // Draw data points
+        g.selectAll(".data-point")
+          .data(validData)
+          .enter()
+          .append("circle")
+          .attr("class", (d) => `data-point ${getCFRClass(d.cfr)}`)
+          .attr("id", (d) => `chart1-${d.location.replace(/\s+/g, "-")}`)
+          .attr("cx", (d) => xScale(d.total_cases))
+          .attr("cy", (d) => yScale(d.total_deaths))
+          .attr("r", (d) => sizeScale(d.total_cases))
+          .on("mouseover", function (event, d) {
+            // Console debug info
+            console.log("Chart 1 Hover - Full Data:", d);
+
+            // Calculate daily CFR
+            const dailyCFR =
+              d.new_cases > 0 ? (d.new_deaths / d.new_cases) * 100 : 0;
+
+            // Show tooltip
+            tooltip.style("opacity", 1).html(`
+              <div class="tooltip-title">${d.location}</div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Total Cases:</span>
+                <span class="tooltip-value">${d.total_cases.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Total Deaths:</span>
+                <span class="tooltip-value">${d.total_deaths.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">New Cases:</span>
+                <span class="tooltip-value">${d.new_cases.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">New Deaths:</span>
+                <span class="tooltip-value">${d.new_deaths.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Total CFR:</span>
+                <span class="tooltip-value">${d.cfr.toFixed(2)}%</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Daily CFR:</span>
+                <span class="tooltip-value">${dailyCFR.toFixed(2)}%</span>
+              </div>
+            `);
+
+            // Highlight corresponding point in chart 2
+            highlightPoint(d.location);
+          })
+          .on("mousemove", function (event) {
+            tooltip
+              .style("left", event.pageX + 15 + "px")
+              .style("top", event.pageY - 28 + "px");
+          })
+          .on("mouseout", function () {
+            tooltip.style("opacity", 0);
+            unhighlightAll();
+          });
+      }
+
+      // Create scatter plot 2 (New Cases vs New Deaths)
+      function createScatterPlot2() {
+        const svg = d3
+          .select("#chart2")
+          .attr("width", config.width)
+          .attr("height", config.height);
+
+        const g = svg
+          .append("g")
+          .attr(
+            "transform",
+            `translate(${config.margin.left},${config.margin.top})`
+          );
+
+        // Store reference for updates
+        window.chart2G = g;
+        window.chart2Svg = svg;
+      }
+
+      // Update scatter plot 2
+      function updateScatterPlot2() {
+        const g = window.chart2G;
+        if (!g) return;
+
+        // Clear previous content
+        g.selectAll("*").remove();
+
+        // Filter valid data (for log scale, we need positive values)
+        const validData = currentData.filter(
+          (d) => d.new_cases > 0 && d.new_deaths > 0
+        );
+
+        if (validData.length === 0) return;
+
+        // Create scales
+        const xScale = d3
+          .scaleLog()
+          .domain([1, d3.max(validData, (d) => d.new_cases) * 1.1])
+          .range([0, innerWidth])
+          .nice();
+
+        const yScale = d3
+          .scaleLog()
+          .domain([1, d3.max(validData, (d) => d.new_deaths) * 1.1])
+          .range([innerHeight, 0])
+          .nice();
+
+        // Add grid lines
+        g.append("g")
+          .attr("class", "grid")
+          .attr("transform", `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(""));
+
+        g.append("g")
+          .attr("class", "grid")
+          .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(""));
+
+        // Add axes
+        g.append("g")
+          .attr("class", "axis")
+          .attr("transform", `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(xScale).ticks(10, ",.0f"));
+
+        g.append("g")
+          .attr("class", "axis")
+          .call(d3.axisLeft(yScale).ticks(10, ",.0f"));
+
+        // Add axis labels
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("x", innerWidth / 2)
+          .attr("y", innerHeight + 50)
+          .attr("text-anchor", "middle")
+          .text("New Cases");
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -innerHeight / 2)
+          .attr("y", -70)
+          .attr("text-anchor", "middle")
+          .text("New Deaths");
+
+        // Draw data points
+        g.selectAll(".data-point")
+          .data(validData)
+          .enter()
+          .append("circle")
+          .attr("class", (d) => `data-point ${getCFRClass(d.cfr)}`)
+          .attr("id", (d) => `chart2-${d.location.replace(/\s+/g, "-")}`)
+          .attr("cx", (d) => xScale(d.new_cases))
+          .attr("cy", (d) => yScale(d.new_deaths))
+          .attr("r", (d) => sizeScale(d.total_cases))
+          .on("mouseover", function (event, d) {
+            // Console debug info
+            console.log("Chart 2 Hover - Full Data:", d);
+
+            // Calculate daily CFR
+            const dailyCFR =
+              d.new_cases > 0 ? (d.new_deaths / d.new_cases) * 100 : 0;
+
+            // Show tooltip
+            tooltip2.style("opacity", 1).html(`
+              <div class="tooltip-title">${d.location}</div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Total Cases:</span>
+                <span class="tooltip-value">${d.total_cases.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Total Deaths:</span>
+                <span class="tooltip-value">${d.total_deaths.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">New Cases:</span>
+                <span class="tooltip-value">${d.new_cases.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">New Deaths:</span>
+                <span class="tooltip-value">${d.new_deaths.toLocaleString()}</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Total CFR:</span>
+                <span class="tooltip-value">${d.cfr.toFixed(2)}%</span>
+              </div>
+              <div class="tooltip-item">
+                <span class="tooltip-label">Daily CFR:</span>
+                <span class="tooltip-value">${dailyCFR.toFixed(2)}%</span>
+              </div>
+            `);
+
+            // Highlight corresponding point in chart 1
+            highlightPoint(d.location);
+          })
+          .on("mousemove", function (event) {
+            tooltip2
+              .style("left", event.pageX + 15 + "px")
+              .style("top", event.pageY - 28 + "px");
+          })
+          .on("mouseout", function () {
+            tooltip2.style("opacity", 0);
+            unhighlightAll();
+          });
+      }
+
+      // Get CFR class for color coding
+      function getCFRClass(cfr) {
+        if (cfr >= 5) return "high-cfr";
+        if (cfr >= 1) return "medium-cfr";
+        return "low-cfr";
+      }
+
+      // Highlight corresponding points
+      function highlightPoint(location) {
+        const safeLocation = location.replace(/\s+/g, "-");
+
+        // Highlight in both charts
+        d3.selectAll(
+          `#chart1-${safeLocation}, #chart2-${safeLocation}`
+        ).classed("highlighted", true);
+
+        // Dim other points
+        d3.selectAll(".data-point")
+          .filter(function () {
+            return !this.classList.contains("highlighted");
+          })
+          .classed("dimmed", true);
+      }
+
+      // Remove all highlights
+      function unhighlightAll() {
+        d3.selectAll(".data-point")
+          .classed("highlighted", false)
+          .classed("dimmed", false);
+      }
+    </script>
+  </body>
+</html>

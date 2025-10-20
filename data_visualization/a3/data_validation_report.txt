@@ -1,0 +1,59 @@
+COVID-19 数据质量验证报告
+==================================================
+
+1. 基本信息
+--------------------
+总行数: 248,346
+总列数: 10
+日期范围: 2020-01-22 到 2023-03-09
+不同地区数: 231
+
+2. 缺失值分析
+--------------------
+new_cases:
+  缺失值: 271
+  空字符串: 0
+  零值: 83,684
+  有效值: 248,075
+
+new_deaths:
+  缺失值: 19,838
+  空字符串: 0
+  零值: 118,992
+  有效值: 228,508
+
+total_cases:
+  缺失值: 9
+  空字符串: 0
+  零值: 0
+  有效值: 248,337
+
+total_deaths:
+  缺失值: 19,754
+  空字符串: 0
+  零值: 0
+  有效值: 228,592
+
+3. 数据一致性检查
+--------------------
+发现 195 个一致性问题
+- total_cases_decreasing in Afghanistan: 3 个问题
+- total_cases_decreasing in Africa: 1 个问题
+- total_deaths_decreasing in Africa: 2 个问题
+- total_deaths_decreasing in Andorra: 1 个问题
+- total_deaths_decreasing in Angola: 1 个问题
+- total_deaths_decreasing in Anguilla: 1 个问题
+- total_cases_decreasing in Antigua and Barbuda: 2 个问题
+- total_deaths_decreasing in Armenia: 1 个问题
+- total_cases_decreasing in Aruba: 1 个问题
+- total_deaths_decreasing in Aruba: 2 个问题
+... 还有 185 个问题
+
+4. 清洗后数据统计
+--------------------
+清洗后行数: 238,133
+清洗后地区数: 222
+最新日期: 2023-03-09
+最新日期数据点数: 222
+有效累计数据点数: 218
+有效新增数据点数: 64
